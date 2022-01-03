@@ -2,6 +2,7 @@
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Widget\DateInputWidget;
+use MediaWiki\Revision\SlotRecord;
 
 class SDBrowseDataPage extends QueryPage {
 	private $category = "";
@@ -9,13 +10,14 @@ class SDBrowseDataPage extends QueryPage {
 	private $next_level_subcategories = [];
 	private $all_subcategories = [];
 	private $applied_filters = [];
+	var $conceptName = "";
 	private $remaining_filters = [];
 	private $show_single_cat = false;
 
 	/**
 	 * Initialize the variables of this page
 	 */
-	public function __construct( $category, $subcategory, $applied_filters, $remaining_filters, $offset, $limit ) {
+	public function __construct( $category, $subcategory, $applied_filters, $remaining_filters, $offset, $limit, $conceptName ) {
 		parent::__construct( 'BrowseData' );
 
 		$this->category = $category;
@@ -24,6 +26,7 @@ class SDBrowseDataPage extends QueryPage {
 		$this->remaining_filters = $remaining_filters;
 		$this->offset = $offset;
 		$this->limit = $limit;
+		$this->conceptName = $conceptName;
 
 		$dbr = wfGetDB( DB_REPLICA );
 		$categorylinks = $dbr->tableName( 'categorylinks' );
@@ -75,6 +78,207 @@ class SDBrowseDataPage extends QueryPage {
 				}
 			}
 		}
+		return $url;
+	}
+
+	private function getDatesFromRange($name, $filter, $lower_date, $upper_date, $sepF="%0A")
+	{
+		$url = '';
+		$date_string1 = $date_string2 = null;
+
+		if ($lower_date == null && $upper_date == null) {
+			if ($filter->day != null) { // complete date
+				$date_string1 = $filter->year . "-" . $filter->month . "-" . $filter->day;
+				$date_string2 = new DateTime($date_string1);
+				$date_string2->modify('+1 day');
+				$date_string2 = $date_string2->format('m d, Y');
+			}
+			elseif ($filter->month != null){ // missing day
+				$date_string1 = $filter->year . "-" . $filter->month . "-01";
+				$date_string2 = new DateTime($date_string1);
+				$date_string2->modify('+1 month');
+				$date_string2 = $date_string2->format('m Y');
+			}
+			else { // only year
+				$date_string1 = $filter->year;
+				if ($filter->end_year != null)
+					$date_string2 = $filter->end_year + 1;
+				else
+					$date_string2 = $date_string1 + 1;
+			}
+		}
+		else {
+			if ($lower_date != null)
+				$date_string1 = sprintf("%04d-%02d-%02d", $lower_date['year'], $lower_date['month'], $lower_date['day']);
+			if ($upper_date != null)
+				$date_string2 = sprintf("%04d-%02d-%02d", $upper_date['year'], $upper_date['month'], $upper_date['day']);
+		}
+
+		if ($date_string1 != null) {
+			$url .= '[[' . urlencode( $name ) . "::≥"
+					. urlencode( $date_string1 ) . ']]' . $sepF;
+		}
+		if ($date_string2 != null) {
+			$url .= '[[' . urlencode( $name ) . "::≤"
+					. urlencode( $date_string2 ) . ']]';
+		}
+
+		return $url;
+	}
+
+	private function getCat($name, $filter)
+	{
+		return '[[' . urlencode( $name ) . '::Category:' . urlencode( $filter->text ) . ']]';
+	}
+
+	private function getNumbersFromRange($name, $filter)
+	{
+		$url = '';
+		$f = explode('-', $filter->text);
+
+		if (count($f) > 1) {
+			$val1 = $f[0];
+			$url .= '[[' . urlencode( $name ) . "::≥" . urlencode( $f[0] ) . ']]';
+			$url .= '[[' . urlencode( $name ) . "::≤" . urlencode( $f[1] ) . ']]';
+		}
+		else {
+			$url .= '[[' . urlencode( $name ) . '::' . urlencode( $filter->text ) . ']]';
+		}
+
+		return $url;
+	}
+
+	private function getPageParameter($category, $name)
+	{
+		$title = Title::newFromText( $category, NS_CATEGORY );
+		$pageID = $title->getArticleID();
+		$dbr = wfGetDB( DB_REPLICA );
+
+		$res = $dbr->select( 'page_props',
+			[
+				'pp_value'
+			],
+			[
+				'pp_page' => $pageID,
+				'pp_propname' => $name
+			]
+		);
+
+		$value = '';
+		while ( $row = $dbr->fetchRow( $res ) ) {
+			// There should only be one row.
+			$value = $row['pp_value'];
+		}
+
+		return $value;
+	}
+
+	private function buildFiltersAndPrintouts( $category, $applied_filters, $encode=true, $sepF="%0A", $sepP="%0A")
+	{
+		$printoutsStr = $this->getPageParameter($category, 'SDPrintouts');
+		$printouts = array_map(function ($e) { return '?' . $e; }, explode(';', $printoutsStr));
+		$printouts = implode($sepP, $printouts);
+
+		$local_printouts = [];
+		$filters = '';
+
+		$encF = function ($x) { return $x; };
+		if ($encode)
+			$encF = 'urlencode';
+
+		foreach ( $applied_filters as $i => $af ) {
+			// CHECK: $af->lower_date and $af->upper_date can be non-null even if count( $af->values ) == 0
+			if ( count( $af->values ) == 0  && $af->lower_date == null && $af->upper_date == null) {
+				// do nothing
+			} elseif ( count( $af->values ) == 1 || $af->lower_date != null || $af->upper_date != null) {
+				$filters .= $sepF;
+				if ($af->filter->property_type == 'date')
+					$filters .= $this->getDatesFromRange($af->filter->property, $af->values[0], $af->lower_date, $af->upper_date, $sepF);
+				// TODO: distinguish Pages from Categories (not all pages are categories)
+				else if ($af->filter->property_type == 'page')
+					$filters .= $this->getCat($af->filter->property, $af->values[0]);
+				else if ($af->filter->property_type == 'number')
+					$filters .= $this->getNumbersFromRange($af->filter->property, $af->values[0]);
+				else
+					$filters .= '[[' . $encF( $af->filter->property ) . "::" . $encF( $af->values[0]->text ) . "]]";
+				$local_printouts[] = $encF('?' . $af->filter->property);
+			} else {
+				usort( $af->values, [ "SDFilterValue", "compare" ] );
+				$clauses = [];
+				$filters .= $sepF;
+				foreach ( $af->values as $j => $fv ) {
+					if ($af->filter->property_type == "date")
+						$clauses[] = $this->getDatesFromRange($af->filter->property, $fv, $af->lower_date, $af->upper_date, $sepF);
+					// TODO: distinguish Pages from Categories (not all pages are categories)
+					else if ($af->filter->property_type == "page")
+						$clauses[] = $this->getCat($af->filter->property, $fv);
+					else if ($af->filter->property_type == "number")
+						$clauses[] = $this->getNumbersFromRange($af->filter->property, $fv);
+					else
+						$clauses[] =  $encF( $fv->text );
+				}
+				$filters .= "[[" . $encF( $af->filter->property ) . "::" . implode(" || ", $clauses) . "]]";
+				$local_printouts[] = $encF('?' . $af->filter->property);
+			}
+		}
+
+		if ($printouts == '')
+			$printouts = implode($sepP, $local_printouts);
+
+		MWDebug::log($filters);
+		return [$filters, $printouts];
+	}
+
+	function newConcept($title, $user, $category, $applied_filters)
+	{
+		$titleC = "Concept:" . $title;
+		$titleT = Title::newFromText($titleC);
+		$page = WikiPage::factory($titleT);
+		$updater = $page->newPageUpdater($user);
+		$flags = EDIT_MINOR;
+		$slot = SlotRecord::MAIN;
+		[$filters, $printouts] = $this->buildFiltersAndPrintouts($category, $applied_filters, false, "\n  ", "\n  |");
+		$content = <<<EOB
+{{#concept: [[Category:$category]]  $filters
+  |$title
+}}
+
+<noinclude>
+{{#ask: [[$titleC]]
+  |$printouts
+  |mainlabel=Patients
+  |format=table
+  |limit=25
+  |class=datatable
+}}
+</noinclude>
+EOB;
+		$content = ContentHandler::makeContent($content, $titleT);
+		$updater->setContent($slot, $content);
+		$updater->saveRevision(CommentStoreComment::newUnsavedComment('From PHP'), $flags);
+
+		return $page->getSourceURL();
+	}
+
+	// Export format: index.php?title=Special:Ask&q=[[Category:cat]]\n[[property::value]]&po=%3Ffield1%0Afield2%3Ffield_label2&p[mainlabel]=label // &p[format]=csv
+	function makeExportURL($category, $applied_filters)
+	{
+		$exportFormat = "";
+		$format = $this->getPageParameter($category, "SDExportFormat");
+		if ($format != '')
+			$exportFormat = "&p[format]=" . $format;
+
+		$base_dom = SpecialPage::getTitleFor( "Ask" );
+		$url = $base_dom->getLocalURL() . "&q=[[Category:$category]]";
+		if ( $this->show_single_cat ) {
+			$url .= ( strpos( $url, '?' ) ) ? '&' : '?';
+			$url .= "_single";
+		}
+
+		[$filters, $printouts] = $this->buildFiltersAndPrintouts($category, $applied_filters);
+
+		$url .= $filters . "&po=" . $printouts . "&p[mainlabel]=ID&eq=yes" . $exportFormat;
+
 		return $url;
 	}
 
@@ -681,6 +885,7 @@ END;
 				$text .= " &middot; ";
 			}
 			// number_format() adds in commas for each thousands place.
+			// not clear when numbers are (numeric) years
 			$curText = number_format( $curBucket['lowerNumber'] );
 			if ( $curBucket['higherNumber'] != null ) {
 				$curText .= ' - ' . number_format( $curBucket['higherNumber'] );
@@ -870,6 +1075,7 @@ END;
 		}
 
 		// For dates additionally add two datepicker inputs (Start/End) to select a custom interval.
+		// Check if it works in export
 		if ( $f->property_type == 'date' && count( $filter_values ) != 0 ) {
 			$results_line .= '<br>' . $this->printDateRangeInput( $filter_name, $lower_date, $upper_date );
 		}
@@ -1023,7 +1229,21 @@ END;
 			}
 		}
 		$filters = SDUtils::loadFiltersForCategory( $this->category );
+		$last_group = 'none';
 		foreach ( $filters as $f ) {
+			if ($last_group != '' && $f->group != $last_group) {
+				if ($f->group == '')
+					$group = 'Criteria';
+				else
+					$group = $f->group;
+				if ($last_group != 'none')
+					$header .= '</div></div>';
+       	        $arrowImage = "$sdgScriptPath/skins/down-arrow.png";
+				$header .= '<div class="drilldown-filter">';
+				$header .= '<h2 class="drilldown-group-label">';
+				$header .= '<a class="drilldown-group-toggle" style="cursor: default;"><img src="' . $arrowImage . '" /></a>' . $group . '</h2>';
+				$header .= '<div class="drilldown-group-values">';
+			}
 			foreach ( $this->applied_filters as $af ) {
 				if ( $af->filter->name == $f->name ) {
 					if ( $f->property_type == 'date' || $f->property_type == 'number' ) {
@@ -1038,8 +1258,23 @@ END;
 					$header .= $this->printUnappliedFilterLine( $rf, $cur_url );
 				}
 			}
+			if ($last_group != '' && $f->group != $last_group) {
+				$last_group = $f->group;
+			}
 		}
-		$header .= "				</div> <!-- drilldown-filters -->\n";
+		$header .= "				</div></div></div> <!-- drilldown-filters -->\n";
+		if (array_search('exporters', $this->getUser()->getGroups())) {
+			$header .= '<hr />';
+			if ($this->conceptName !== '') {
+				$url = $this->newConcept($this->conceptName, $this->getUser(), $this->category, $this->applied_filters, $this->subcategory);
+				$header .= '<a id="concept-url" href="' . $url . '">' . $this->conceptName . '</a>&nbsp;&nbsp;&nbsp;';
+			}
+			$header .= '<input type="button" id="save-concept" value="'
+					. wfMessage( 'sd-save' )->text() . '" /><input id="concept-name" class="oo-ui-inputWidget-input" value="' . $this->conceptName . '" />';
+
+			$header .= '<h2><a href="' . $this->makeExportURL( $this->category, $this->applied_filters, $this->subcategory) . '">'
+					. wfMessage( 'sd-export' )->text() . '</a></h2><hr />';
+		}
 		return $header;
 	}
 

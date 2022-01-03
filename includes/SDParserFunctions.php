@@ -38,7 +38,7 @@ class SDParserFunctions {
 		$params = func_get_args();
 		array_shift( $params );
 
-		$filtersStr = $titleStr = $displayParametersStr = "";
+		$filtersStr = $titleStr = $displayParametersStr = $printoutStr = $exportFormatStr ="";
 
 		// Parameters
 		foreach ( $params as $i => $param ) {
@@ -60,6 +60,10 @@ class SDParserFunctions {
 				$titleStr = $value;
 			} elseif ( $param_name == 'display parameters' ) {
 				$displayParametersStr = $value;
+			} elseif ( $param_name == 'printouts' ) {
+				$printoutStr = $value;
+			} elseif ( $param_name == 'export format' ) {
+				$exportFormatStr = $value;
 			}
 		}
 
@@ -78,7 +82,7 @@ class SDParserFunctions {
 					continue;
 				}
 				$key = trim( $filterSetting[0] );
-				if ( $key != 'property' && $key != 'category' && $key != 'requires' ) {
+				if ( $key != 'property' && $key != 'category' && $key != 'requires' && $key != 'group' ) {
 					return "<div class=\"error\">Error: unknown setting, \"$key\".</div>";
 				}
 
@@ -102,8 +106,15 @@ class SDParserFunctions {
 		if ( $titleStr != '' ) {
 			$parserOutput->setProperty( 'SDTitle', $titleStr );
 		}
+		if ( $printoutStr != '' ) {
+			$parserOutput->setProperty( 'SDPrintouts', $printoutStr );
+			//MWDebug::log('printouts = ' . $printoutStr);
+		}
 		if ( $displayParametersStr != '' ) {
 			$parserOutput->setProperty( 'SDDisplayParams', $displayParametersStr );
+		}
+		if ($exportFormatStr != '' ) {
+			$parserOutput->setProperty( 'SDExportFormat', $exportFormatStr );
 		}
 
 		$parserOutput->addModules( 'ext.semanticdrilldown.info' );
@@ -125,6 +136,10 @@ class SDParserFunctions {
 				if ( $key == 'property' ) {
 					$propertyTitle = Title::makeTitleSafe( SMW_NS_PROPERTY, $value );
 					$text .= Linker::link( $propertyTitle, $value );
+				} elseif ( $key == 'group' ) {
+					$groupTitle = Title::makeTitleSafe( SMW_NS_PROPERTY, $value );
+					$text .= '<div>' . $value . '</div>';
+
 				} elseif ( $key == 'category' ) {
 					$categoryTitle = Title::makeTitleSafe( NS_CATEGORY, $value );
 					$text .= Linker::link( $categoryTitle, $value );

@@ -94,6 +94,20 @@
 
 }( jQuery ) );
 
+jQuery.fn.toggleGroupValuesDisplay = function () {
+	jQuery.valuesDiv = jQuery( this ).closest( '.drilldown-filter' )
+		.find( '.drilldown-group-values' );
+	if ( jQuery.valuesDiv.css( 'display' ) === 'none' ) {
+		jQuery.valuesDiv.css( 'display', 'block' );
+		var downArrowImage = mediaWiki.config.get( 'sdgDownArrowImage' );
+		this.find( 'img' ).attr( 'src', downArrowImage );
+	} else {
+		jQuery.valuesDiv.css( 'display', 'none' );
+		var rightArrowImage = mediaWiki.config.get( 'sdgRightArrowImage' );
+		this.find( 'img' ).attr( 'src', rightArrowImage );
+	}
+};
+
 jQuery.fn.toggleValuesDisplay = function () {
 	jQuery.valuesDiv = jQuery( this ).closest( '.drilldown-filter' )
 		.find( '.drilldown-filter-values' );
@@ -111,6 +125,27 @@ jQuery.fn.toggleValuesDisplay = function () {
 jQuery( document ).ready( function () {
 	jQuery( '.semanticDrilldownCombobox' ).combobox();
 	jQuery( '.drilldown-values-toggle' ).click( function () {
-		jQuery( this ).toggleValuesDisplay();
+		jQuery( this ).toggleValuesDisplay('filter');
 	} );
+        jQuery( '.drilldown-group-toggle' ).click( function () {
+		jQuery( this ).toggleGroupValuesDisplay('group');
+	} );
+	jQuery( '#save-concept' ).click(function(x) {
+		var name = jQuery( '#concept-name' ).val();
+		var pieces = window.location.href.split('?');
+		window.location.href = pieces[0] + "?_conceptName=" + name + "&" + pieces[1];
+	});
+	/*$( "#concept-name" ).autocomplete({
+	source: function( request, response ) {
+		$.ajax( {
+			url: "/conceptList.php",
+			dataType: "json",
+			success: function(data1) {
+				var data = data1.pfautocomplete.map(x => {return {'id': x.title, 'label': x.title, 'value': x.title} });
+				response(data);
+			}
+			});
+		},
+	minLength: 1,
+	} );*/
 } );

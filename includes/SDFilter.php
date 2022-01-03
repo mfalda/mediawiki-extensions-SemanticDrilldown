@@ -36,6 +36,10 @@ class SDFilter {
 		$this->allowed_values = SDUtils::getCategoryChildren( $cat, false, 5 );
 	}
 
+        public function setGroup( $group ) {
+		$this->group = $group;
+	}
+
 	public function addRequiredFilter( $filterName ) {
 		$this->required_filters[] = $filterName;
 	}

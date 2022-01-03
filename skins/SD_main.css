@@ -96,6 +96,8 @@ div.drilldown-filters {
 	padding-bottom: 8px;
 	margin-bottom: 8px;
 	border-bottom: 1px #aaaaaa solid;
+	height: 300px;
+    overflow-y: auto;
 }
 span.drilldown-or {
 	color: gray;
@@ -111,6 +113,18 @@ span.drilldown-filter-notes {
 }
 
 div.drilldown-filter-values {
+}
+
+h2.drilldown-group-label {
+	font-weight: bold;
+}
+
+span.drilldown-group-notes {
+	font-weight: normal;
+}
+
+div.drilldown-group-values {
+    border: thin solid black;
 }
 
 .ui-button { margin-left: -1px; }

@@ -218,6 +218,8 @@ class SDUtils {
 						$curFilter->loadPropertyTypeFromProperty();
 					} elseif ( $key == 'category' ) {
 						$curFilter->setCategory( $value );
+						} elseif ( $key == 'group' ) {
+						$curFilter->setGroup( $value );
 					} elseif ( $key == 'requires' ) {
 						$curFilter->addRequiredFilter( $value );
 					}

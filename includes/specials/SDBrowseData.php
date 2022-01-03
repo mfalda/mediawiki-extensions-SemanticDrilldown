@@ -54,6 +54,8 @@ class SDBrowseData extends IncludableSpecialPage {
 		}
 		$filters = [];
 
+		$conceptName = str_replace( '_', ' ', $request->getVal( '_conceptName' ) );
+
 		// get information on current category, subcategory and filters
 		// that have already been applied from the query string
 		$category = str_replace( '_', ' ', $request->getVal( '_cat' ) );
@@ -139,7 +141,7 @@ class SDBrowseData extends IncludableSpecialPage {
 		}
 
 		$out->addHTML( "\n			<div class=\"drilldown-results\">\n" );
-		$rep = new SDBrowseDataPage( $category, $subcategory, $applied_filters, $remaining_filters, $offset, $limit );
+		$rep = new SDBrowseDataPage( $category, $subcategory, $applied_filters, $remaining_filters, $offset, $limit, $conceptName );
 		$num = $rep->execute( $query );
 		$out->addHTML( "\n			</div> <!-- drilldown-results -->\n" );
 
