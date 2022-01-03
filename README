@@ -1,5 +1,42 @@
 == About ==
 
+This fork adds the possibility to export filtered results in Semantic Drilldown
+as ASK queries or concepts. Properties can be grouped. For example:
+
+```
+{{#drilldowninfo:filters=
+  rating (property=Rating)
+  random_county (property=Random_county, group=General)
+  age_group (property=Age_group, group=General)
+  gender (property=Gender, group=General)
+  fever (property=Fever, group=Symptoms)
+  fever_temperature (property=Fever_temperature, group=Symptoms)
+  cough (property=Cough, group=Symptoms)
+  sore_throat (property=Sore_throat, group=Symptoms)
+  malaise (property=Malaise, group=Symptoms)
+  headache (property=Headache, group=Symptoms)
+  diarrhea (property=Diarrhea, group=Symptoms)
+  conjunctivitis (property=Conjunctivitis, group=Symptoms)
+  other_symptoms (property=Other_symptoms, group=Symptoms)
+  symptomatic_at_first_sampling (property=Symptomatic_at_first_sampling, group=Symptoms)
+  symptomatic_at_follow_up (property=Symptomatic_at_follow_up, group=Symptoms)
+  symptomatic (property=Symptomatic, group=Symptoms)
+  first_sampling (property=First_sampling, group=Samples)
+  second_sampling (property=Second_sampling, group=Samples)
+  positive (property=Positive, group=Samples)
+  hospitalized (property=Hospitalized, group=Status)
+  deceased (property=Deceased, group=Status)
+  first_symptoms_date (property=First_symptoms_date, group=Status)
+  clinical_condition_at_hospitalization (property=Clinical_condition_at_hospitalization, group=Status)
+  first_hospitalization_date (property=First_hospitalization_date, group=Status)
+  discharge_date (property=Discharge_date, group=Status)
+  death_date (property=Death_date, group=Status)
+  |title=Semantic Drill-down
+  |printouts=Uid;Household_id;Random_county;Age_group;Gender;Fever;Fever_temperature;Cough;Sore_throat;Malaise;Headache;Diarrhea;Conjunctivitis;Other_symptoms;Symptomatic_at_first_sampling;Symptomatic_at_follow_up;Symptomatic;First_sampling;Second_sampling;Positive;Hospitalized;Deceased;First_symptoms_date;Clinical_condition_at_hospitalization;First_hospitalization_date;Discharge_date;Death_date
+  |export format=spreadsheet
+}}
+```
+
 Semantic Drilldown is an extension to MediaWiki that works in
 conjunction with another extension, Semantic MediaWiki, to provide
 a drilldown interface for all the data on a site.
